@@ -18,6 +18,7 @@ import androidx.core.app.ActivityCompat;
 import com.example.myreverseplayapp.R;
 
 import java.io.*;
+import android.graphics.Color;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -51,17 +52,26 @@ public class MainActivity extends AppCompatActivity {
             if (!isRecording) {
                 startRecording();
                 btnRecord.setText("録音停止");
+                btnRecord.setBackgroundColor(Color.RED); // 録音中に赤く
+                btnPlay.setEnabled(false);
+                btnReverse.setEnabled(false);
+                isRecording = true;
             } else {
                 stopRecording();
                 btnRecord.setText("録音開始");
+                btnRecord.setBackgroundColor(Color.parseColor("#674DA2")); // 停止後に戻す
                 btnPlay.setEnabled(true);
                 btnReverse.setEnabled(true);
+                isRecording = false;
             }
-            isRecording = !isRecording;
         });
 
         btnPlay.setOnClickListener(v -> playWavFile(false));
         btnReverse.setOnClickListener(v -> playWavFile(true));
+
+        btnRecord.setBackgroundColor(Color.parseColor("#674DA2")); // 初期色
+        btnPlay.setBackgroundColor(Color.parseColor("#674DA2")); // 初期色
+        btnReverse.setBackgroundColor(Color.parseColor("#674DA2")); // 初期色
     }
 
     private void requestPermissions() {
@@ -165,6 +175,15 @@ public class MainActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
+                // 色を変更
+                runOnUiThread(() -> {
+                    if (reverse) {
+                        btnReverse.setBackgroundColor(Color.RED);
+                    } else {
+                        btnPlay.setBackgroundColor(Color.RED);
+                    }
+                });
+
                 FileInputStream fis = new FileInputStream(wavFile);
                 byte[] header = new byte[44]; // WAVヘッダー
                 fis.read(header); // ヘッダー読み飛ばし
@@ -205,6 +224,12 @@ public class MainActivity extends AppCompatActivity {
             } catch (IOException e) {
                 runOnUiThread(() ->
                         Toast.makeText(this, "再生エラー: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            } finally {
+                // 色を元に戻す
+                runOnUiThread(() -> {
+                    btnPlay.setBackgroundColor(Color.parseColor("#674DA2"));
+                    btnReverse.setBackgroundColor(Color.parseColor("#674DA2"));
+                });
             }
         }).start();
     }
