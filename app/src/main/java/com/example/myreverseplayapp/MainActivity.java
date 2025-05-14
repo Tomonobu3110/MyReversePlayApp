@@ -10,6 +10,8 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private final int channelConfig = AudioFormat.CHANNEL_IN_MONO;
     private final int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
     private int bufferSize;
+
+    private float currentAmplification = 1.0f;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +77,23 @@ public class MainActivity extends AppCompatActivity {
         btnRecord.setBackgroundColor(Color.parseColor("#674DA2")); // 初期色
         btnPlay.setBackgroundColor(Color.parseColor("#674DA2")); // 初期色
         btnReverse.setBackgroundColor(Color.parseColor("#674DA2")); // 初期色
+
+        SeekBar seekAmplify = findViewById(R.id.seekAmplify);
+        TextView textAmplify = findViewById(R.id.textAmplify);
+
+        // スライダーの値が変わるたびにテキストを更新
+        seekAmplify.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                float amplification = 0.8f + (progress / 100.0f);
+                textAmplify.setText(String.format("音量: x %.2f", amplification));
+                // 必要に応じて変数として保存
+                currentAmplification = amplification;
+            }
+
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
     }
 
     private void requestPermissions() {
@@ -261,6 +282,10 @@ public class MainActivity extends AppCompatActivity {
                     audioData = reversePCM(audioData);
                 }
 
+                // ★ 音量増幅処理を追加
+                float amplificationFactor = currentAmplification; // スライダーの値を使用
+                audioData = amplifyPCM(audioData, amplificationFactor);
+
                 int bufferSize = AudioTrack.getMinBufferSize(sampleRate, channelConfig, audioFormat);
                 AudioTrack audioTrack = new AudioTrack(
                         AudioManager.STREAM_MUSIC,
@@ -296,5 +321,27 @@ public class MainActivity extends AppCompatActivity {
             reversed[data.length - i - 1] = data[i + 1];
         }
         return reversed;
+    }
+
+    private byte[] amplifyPCM(byte[] audioData, float factor) {
+        byte[] newData = new byte[audioData.length];
+
+        for (int i = 0; i < audioData.length; i += 2) {
+            // リトルエンディアンでshortに変換
+            short sample = (short)((audioData[i] & 0xFF) | (audioData[i + 1] << 8));
+
+            // 増幅処理
+            int amplified = (int)(sample * factor);
+
+            // 16bit範囲でクリップ
+            if (amplified > Short.MAX_VALUE) amplified = Short.MAX_VALUE;
+            if (amplified < Short.MIN_VALUE) amplified = Short.MIN_VALUE;
+
+            // バイト配列に戻す（リトルエンディアン）
+            newData[i] = (byte)(amplified & 0xFF);
+            newData[i + 1] = (byte)((amplified >> 8) & 0xFF);
+        }
+
+        return newData;
     }
 }

@@ -26,4 +26,24 @@
         android:text="逆再生"
         android:layout_marginTop="16dp" />
 
+    <!-- 増幅率の表示 -->
+    <TextView
+        android:id="@+id/textAmplify"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="音量: x 1.0"
+        android:layout_marginTop="24dp" />
+
+    <!-- 音量スライダー -->
+    <SeekBar
+        android:id="@+id/seekAmplify"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:max="420"
+        android:progress="20" />
+
+    <!-- (2.5 - 0.8) * 100 = 170 = max -->
+    <!-- 初期値: 1.0x = 20 -->
+
 </LinearLayout>
