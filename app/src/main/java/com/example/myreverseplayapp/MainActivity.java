@@ -50,12 +50,13 @@ public class MainActivity extends AppCompatActivity {
 
         btnRecord.setOnClickListener(v -> {
             if (!isRecording) {
-                startRecording();
-                btnRecord.setText("録音停止");
-                btnRecord.setBackgroundColor(Color.RED); // 録音中に赤く
-                btnPlay.setEnabled(false);
-                btnReverse.setEnabled(false);
-                isRecording = true;
+                if (startRecording()) {
+                    btnRecord.setText("録音停止");
+                    btnRecord.setBackgroundColor(Color.RED); // 録音中に赤く
+                    btnPlay.setEnabled(false);
+                    btnReverse.setEnabled(false);
+                    // isRecording = true; // done in startRecording()
+                }
             } else {
                 stopRecording();
                 btnRecord.setText("録音開始");
@@ -82,13 +83,55 @@ public class MainActivity extends AppCompatActivity {
         }, 200);
     }
 
-    private void startRecording() {
+    private boolean startRecording() {
+        // AudioRecord の初期化
         recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                 sampleRate, channelConfig, audioFormat, bufferSize);
-        recorder.startRecording();
 
-        recordingThread = new Thread(this::writeAudioDataToFile, "AudioRecorder Thread");
-        recordingThread.start();
+        // AudioRecord の初期化状態をチェック
+        if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+            //Log.e("Audio", "AudioRecord の初期化に失敗しました");
+            Toast.makeText(this, "AudioRecord の初期化に失敗しました", Toast.LENGTH_SHORT).show();
+            recorder = null;
+            return false;
+        }
+
+        try {
+            recorder.startRecording();
+        } catch (IllegalStateException e) {
+            //Log.e("Audio", "AudioRecord の startRecording に失敗しました", e);
+            Toast.makeText(this, "AudioRecord の startRecording に失敗しました", Toast.LENGTH_SHORT).show();
+            recorder.release();
+            recorder = null;
+            return false;
+        }
+
+        isRecording = true;
+
+        // 録音スレッドの作成と起動
+        recordingThread = new Thread(() -> {
+            try {
+                writeAudioDataToFile();
+            } catch (Exception e) {
+                //Log.e("Audio", "録音スレッド内でエラーが発生しました", e);
+                Toast.makeText(this, "録音スレッド内でエラーが発生しました", Toast.LENGTH_SHORT).show();
+            }
+        }, "AudioRecorder Thread");
+
+        try {
+            recordingThread.start();
+        } catch (IllegalThreadStateException e) {
+            //Log.e("Audio", "録音スレッドの起動に失敗しました", e);
+            Toast.makeText(this, "録音スレッドの起動に失敗しました", Toast.LENGTH_SHORT).show();
+            isRecording = false;
+            recorder.stop();
+            recorder.release();
+            recorder = null;
+            recordingThread = null;
+            return false;
+        }
+
+        return true;
     }
 
     private void writeAudioDataToFile() {
@@ -107,13 +150,25 @@ public class MainActivity extends AppCompatActivity {
 
     private void stopRecording() {
         if (recorder != null) {
-            isRecording = false;
+            isRecording = false; // to stop the loop in writeAudioDataToFile
+
+            // スレッドの終了を待つ
+            try {
+                if (recordingThread != null) {
+                    recordingThread.join();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             recorder.stop();
             recorder.release();
             recorder = null;
             recordingThread = null;
 
             pcmToWav(pcmFilePath, wavFilePath);
+        } else {
+            Toast.makeText(this, "録音が開始されていません", Toast.LENGTH_SHORT).show();
         }
     }
 
